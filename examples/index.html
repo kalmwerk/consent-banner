@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>consent-banner demo</title>
+    <!-- 1. Fail-safe Consent Mode default, before any Google tag -->
+    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('consent','default',{ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',analytics_storage:'denied',functionality_storage:'denied',personalization_storage:'denied',security_storage:'granted',wait_for_update:500});</script>
+    <!-- 2. The banner (run `npm run build` first) -->
+    <script src="../dist/consent-banner.min.js" data-config='{"policyUrl":"/privacy","layout":"pill","services":{"analytics":["Demo analytics"]}}'></script>
+    <style>
+      body { font: 16px/1.5 system-ui, sans-serif; max-width: 40rem; margin: 3rem auto; padding: 0 1rem; color: #0f172a; }
+      code, pre { background: #f1f5f9; border-radius: 6px; }
+      pre { padding: 1rem; overflow: auto; font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <h1>consent-banner demo</h1>
+    <p>This page loads nothing from the network. Open it straight from disk after a build.</p>
+    <p><button type="button" onclick="PrivacyPill.open()">Cookie settings</button>
+       <button type="button" onclick="PrivacyPill.reset()">Ask again</button></p>
+    <p>Analytics script: <strong id="status">blocked</strong></p>
+    <h2>Consent state</h2>
+    <pre id="state">No choice yet</pre>
+
+    <!-- Runs only after the visitor allows analytics -->
+    <script type="text/plain" data-pp-category="analytics">
+      document.getElementById("status").textContent = "running";
+    </script>
+    <script>
+      function show(e) {
+        document.getElementById("state").textContent = JSON.stringify({ consent: e.consent, gcm: e.gcm }, null, 2);
+      }
+      PrivacyPill.on(show);
+      if (PrivacyPill.get()) show({ consent: PrivacyPill.get() });
+    </script>
+  </body>
+</html>
