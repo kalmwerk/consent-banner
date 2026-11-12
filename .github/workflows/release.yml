@@ -1,0 +1,61 @@
+# Publishes to npm when a version tag (v1.2.3) is pushed, with a provenance statement that links the
+# package to this repository and this workflow run. npm's trusted publisher settings must name this
+# file: release.yml.
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: write # create the GitHub release and attach the script file
+      id-token: write # npm trusted publishing (OIDC) and provenance
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false # never use caches in release builds
+      - name: npm 11.5.1 or later (needed for trusted publishing)
+        run: npm install -g npm@11 && npm --version
+      - run: npm ci
+      - name: Tag matches package.json
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version"
+            exit 1
+          fi
+      - run: npm run typecheck
+      - run: npm test
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+        env:
+          # Only used for the very first release, before trusted publishing exists for the package.
+          # Delete the NPM_TOKEN secret once trusted publishing is set up; npm then uses OIDC.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: GitHub release with the script-tag build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '
+            index($0, "## [" v "]") == 1 { on = 1; next }
+            /^## \[/ { on = 0 }
+            /^\[[^]]+\]: / { on = 0 }
+            on
+          ' CHANGELOG.md > release-notes.md
+          gh release create "$GITHUB_REF_NAME" dist/consent-banner.min.js \
+            --title "$GITHUB_REF_NAME" --notes-file release-notes.md --verify-tag
